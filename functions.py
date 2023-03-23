@@ -11,9 +11,6 @@ def generate_unique_text(length, list_to_check):
         text = randomword(length)
     return text
 
-players = []
-lobbys = []
-
 def add_player(name):
     token = generate_unique_text(20, [x.token for x in players])
     players.append(Player(name, token))
