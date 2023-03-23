@@ -1,6 +1,7 @@
 from flask import Flask
 from flask import request
 from functions import *
+from json import *
 
 players = {}
 lobbys = {}
@@ -14,6 +15,16 @@ def add_player():
     players[token] = Player(name, token)
     app.logger.debug(players)
     return token
+
+@app.get("/lobby/")
+def get_lobby_info():
+    code = request.form.get('code')
+    lobby = lobbys[code]
+    
+    return json.dumps({
+        "code":lobby.code,
+        "members":[players[mem].nickname for mem in lobby.members]
+    })
 
 @app.post("/lobby/")
 def add_lobby():
