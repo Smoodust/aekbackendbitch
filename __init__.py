@@ -23,14 +23,17 @@ def get_lobby_info():
     
     return json.dumps({
         "code":lobby.code,
-        "members":[players[mem].nickname for mem in lobby.members]
+        "members":[players[mem['token']].nickname for mem in lobby.members]
     })
 
 @app.post("/lobby/")
 def add_lobby():
     token_creator = request.form.get('token_creator')
     code = generate_unique_text(5, [x.code for x in lobbys])
-    lobbys[code] = Lobby(code, [token_creator])
+    lobbys[code] = Lobby(code, LobbyStatus.waiting, [{
+        "token":token_creator,
+        "isActive":False
+    }])
     app.logger.debug(lobbys)
     return code
 
@@ -40,7 +43,10 @@ def invite_player():
     code = request.args.get('code')
 
     if code in lobbys:
-        lobbys[code].members.append(token)
+        lobbys[code].members.append({
+            "token":token, 
+            "isActive":False
+        })
         app.logger.debug(lobbys)
         return 'OK'
     return 'DONT FIND'

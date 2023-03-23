@@ -10,3 +10,6 @@ def generate_unique_text(length, list_to_check):
     while text in [x for x in list_to_check]:
         text = randomword(length)
     return text
+
+def check_for_starting_game(lobby):
+    return all([mem["isActive"] for mem in lobby.members])
