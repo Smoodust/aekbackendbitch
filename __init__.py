@@ -4,19 +4,23 @@ def randomword(length):
    letters = string.ascii_lowercase
    return ''.join(random.choice(letters) for i in range(length))
 
-players = []
-
-def add_player(name):
+def generate_token():
     token = randomword(20)
     while token in [x['token'] for x in players]:
         token = randomword(20)
+    return token
+
+players = []
+
+def add_player(name):
+    token = generate_token()
     
-    player = {
+    players.append({
         "name":name,
         "token":token
-    }
-    players.append(player)
-    return player 
+    })
+    return token
+
 
 add_player("John")
 add_player("asdadn")
