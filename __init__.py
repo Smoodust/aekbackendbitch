@@ -2,8 +2,8 @@ from flask import Flask
 from flask import request
 from functions import *
 
-players = []
-lobbys = []
+players = {}
+lobbys = {}
 
 app = Flask(__name__)
 
@@ -11,7 +11,7 @@ app = Flask(__name__)
 def add_player():
     name = request.form.get('name')
     token = generate_unique_text(20, [x.token for x in players])
-    players.append(Player(name, token))
+    players[token] = Player(name, token)
     app.logger.debug(players)
     return token
 
@@ -19,7 +19,7 @@ def add_player():
 def add_lobby():
     token_creator = request.form.get('token_creator')
     code = generate_unique_text(5, [x.code for x in lobbys])
-    lobbys.append(Lobby(code, [token_creator]))
+    lobbys[code] = Lobby(code, [token_creator])
     app.logger.debug(lobbys)
     return code
 
@@ -27,9 +27,9 @@ def add_lobby():
 def invite_player():
     token = request.args.get('token')
     code = request.args.get('code')
-    for lobby in lobbys:
-        if lobby.code == code:
-            lobby.members.append(token)
-            app.logger.debug(lobbys)
-            return 'OK'
+
+    if code in lobbys:
+        lobbys[code].members.append(token)
+        app.logger.debug(lobbys)
+        return 'OK'
     return 'DONT FIND'
