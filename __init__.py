@@ -1,5 +1,5 @@
-from flask import Flask
-from flask import request
+from flask import Flask, request
+from flask_socketio import SocketIO, join_room, leave_room, emit
 from functions import *
 from json import *
 
@@ -7,46 +7,49 @@ players = {}
 lobbys = {}
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app)
 
 @app.post("/player/")
 def add_player():
     name = request.form.get('name')
     token = generate_unique_text(20, [x.token for x in players])
-    players[token] = Player(name, token)
+    players[token] = Player(name, token, False)
     app.logger.debug(players)
     return token
 
-@app.get("/lobby/")
-def get_lobby_info():
-    code = request.form.get('code')
-    lobby = lobbys[code]
-    
-    return json.dumps({
-        "code":lobby.code,
-        "members":[players[mem['token']].nickname for mem in lobby.members]
-    })
-
 @app.post("/lobby/")
 def add_lobby():
-    token_creator = request.form.get('token_creator')
     code = generate_unique_text(5, [x.code for x in lobbys])
-    lobbys[code] = Lobby(code, LobbyStatus.waiting, [{
-        "token":token_creator,
-        "isActive":False
-    }])
+    lobbys[code] = Lobby(code, LobbyStatus.waiting, [])
     app.logger.debug(lobbys)
     return code
 
-@app.get("/player/invite/")
-def invite_player():
-    token = request.args.get('token')
-    code = request.args.get('code')
+@socketio.on('join')
+def on_join(data):
+    token = data['token']
+    code = data['code']
+    join_room(code)
+    emit('user_joined', {
+        'token':token,
+        'nickname':players[token].nickname,
+        'toRoom':code
+    }, to=code)
+    emit('lobby_members_info', [
+        players[member_token].nickname for member_token in lobbys.member
+    ])
 
-    if code in lobbys:
-        lobbys[code].members.append({
-            "token":token, 
-            "isActive":False
-        })
-        app.logger.debug(lobbys)
-        return 'OK'
-    return 'DONT FIND'
+@socketio.on('leave')
+def on_leave(data):
+    token = data['token']
+    code = data['code']
+    leave_room(room)
+    players[token].isActive = False
+    emit('user_leaved', {
+        'token':token,
+        'nickname':players[token].nickname,
+        'toRoom':code
+    }, to=code)
+
+if __name__ == '__main__':
+    socketio.run(app)

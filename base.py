@@ -12,9 +12,10 @@ class LobbyStatus(Enum):
 class Player:
     nickname: str
     token: str
+    isActive: bool
 
 @dataclass
 class Lobby:
     code: str
     status: LobbyStatus
-    members: List[Dict[str, Any]]
+    members: List[str]
