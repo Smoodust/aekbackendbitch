@@ -13,8 +13,8 @@ def connect(sid, environ):
     print('connect ', sid)
 
 @sio.on('my custom event')
-def my_message(sid, data):
-    print('message ', data)
+def my_message(sid):
+    sio.emit('my_repsonse')
 
 @sio.event
 def disconnect(sid):
