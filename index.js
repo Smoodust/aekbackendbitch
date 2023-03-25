@@ -13,15 +13,16 @@ const io = socketIo(server,{
 })
 
 function handleGame(state, socket) {
-    const code = state.code;
+    const code = state.code.toUpperCase();
     console.log(state);
     if (state.status == "ready") {
         console.log(lobbys[code]);
         lobbys[code].status = "ready";
         if (lobbys[code].minigames.size > 0)
         {
-            socket.to(code).emit("ready to game", Date.now() + 3000);
-            socket.emit("ready to game", Date.now() + 3000);
+            const time = Date.now() + 3000;
+            socket.to(code).emit("ready to game", time);
+            socket.emit("ready to game", time);
             setTimeout(() => { 
                 handleGame({
                     status: "choosing cards",
@@ -40,13 +41,14 @@ function handleGame(state, socket) {
         }
     } else if (state.status == "choosing cards") {
         console.log("choosing cards");
+        const time = Date.now() + 10000;
         socket.to(code).emit("choose cards", {
             cards: [...lobbys[code].minigames],
-            dateToEnd: Date.now() + 10000
+            dateToEnd: time
         });
         socket.emit("choose cards", {
             cards: [...lobbys[code].minigames],
-            dateToEnd: Date.now() + 10000
+            dateToEnd: time
         });
         setTimeout(() => { 
             handleGame({
@@ -70,12 +72,10 @@ function handleGame(state, socket) {
         }
         console.log(counts, maxCount, maxCountElement)
         socket.to(code).emit("start the game", {
-            game: maxCountElement,
-            dateToEnd: Date.now() + 10000
+            game: maxCountElement
         });
         socket.emit("start the game", {
-            game: maxCountElement,
-            dateToEnd: Date.now() + 10000
+            game: maxCountElement
         });
         setTimeout(() => { 
             handleGame({
@@ -83,43 +83,43 @@ function handleGame(state, socket) {
                 currentGame: maxCountElement,
                 code: code
             }, socket); 
-        }, 10000);
+        }, 12000);
     } else if (state.status == "end of minigame") {
         let scoresA = 0;
         let scoresB = 0;
+        console.log(lobbys[code].gameInfo)
         for (const token in lobbys[code].gameInfo) {
             if (lobbys[code].membersA.has(token)) {
-                scoresA = lobbys[code].gameInfo[token];
+                scoresA = scoresA + lobbys[code].gameInfo[token];
             }
             if (lobbys[code].membersB.has(token)) {
-                scoresB = lobbys[code].gameInfo[token];
+                scoresB = scoresB + lobbys[code].gameInfo[token];
             }
         }
+        console.log(scoresA, scoresB);
         if (scoresA >= scoresB) {
             lobbys[code].scoreA = lobbys[code].scoreA + 1;
         }
         if (scoresA <= scoresB) {
             lobbys[code].scoreB = lobbys[code].scoreB + 1;
         }
+        lobbys[code].gameInfo = {};
         lobbys[code].minigames.delete(state.currentGame);
+        console.log('minigames', lobbys[code].minigames)
         socket.to(code).emit("end of minigame", {
             scoreA:lobbys[code].scoreA,
-            scoreB:lobbys[code].scoreB,
-            dateToEnd: Date.now() + 5000
+            scoreB:lobbys[code].scoreB
         });
         socket.emit("end of minigame", {
             scoreA:lobbys[code].scoreA,
             scoreB:lobbys[code].scoreB,
-            dateToEnd: Date.now() + 5000
         });
         setTimeout(() => { 
             handleGame({
                 status: "ready",
                 code: code
             }, socket); 
-        }, 1000);
-    } else if (state.status == "end game") {
-
+        }, 2000)
     }
 }
 
@@ -167,12 +167,14 @@ io.on("connection", (socket) => {
             });
     
             console.log("lobby created: ", code);
+            console.log(lobbys)
         });
     });
 
     socket.on("join to room", (data, callback) => {
-        let code = data.code;
+        let code = data.code.toUpperCase();
         let token = data.token;
+        console.log(code, lobbys)
 
         if (token in players && code in lobbys)
         {
@@ -192,6 +194,7 @@ io.on("connection", (socket) => {
             callback(payload);
 
             console.log(token, " joined to ", code);
+            console.log(lobbys)
         } else {
             console.log(token in players, code in lobbys)
             callback({
@@ -201,11 +204,12 @@ io.on("connection", (socket) => {
     });
 
     socket.on("choosed card", (token, code, game) => {
+        code = code.toUpperCase();
         lobbys[code].chooseCards[token] = game;
     });
 
     socket.on("set ready to game", (token, code) => {
-        console.log(token, code);
+        code = code.toUpperCase();
         players[token].isActive = true;
         console.log(token, "is ready");
         if ([...lobbys[code].membersA].reduce((accumulator, currentValue) => { return players[currentValue].isActive && accumulator; }, true) && [...lobbys[code].membersB].reduce((accumulator, currentValue) => { return players[currentValue].isActive && accumulator; }, true)) {
@@ -218,11 +222,9 @@ io.on("connection", (socket) => {
     });
 
     socket.on("update score", (token, code, score) => {
+        code = code.toUpperCase()
+        console.log('SCORE', token, code, score)
         lobbys[code].gameInfo[token] = score;
-    });
-
-    socket.on("asd", (callback) => {
-        
     });
   
     socket.on("disconnect", (reason) => {
