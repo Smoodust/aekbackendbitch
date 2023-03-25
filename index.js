@@ -42,7 +42,8 @@ io.on("connection", (socket) => {
                 code: code,
                 membersA: new Set(),
                 membersB: new Set(),
-                minigames: ["guees", "arithmetic"]
+                minigames: ["guees", "arithmetic"],
+                chooseCards: {}
             };
             callback({
                 status: "OK",
@@ -75,13 +76,16 @@ io.on("connection", (socket) => {
             callback(payload);
 
             console.log(token, " joined to ", code);
-            console.log(lobbys);
         } else {
             console.log(token in players, code in lobbys)
             callback({
                 status: "ERROR"
             });
         }
+    });
+
+    socket.on("choosed card", (token, code, game) => {
+        lobbys[code].chooseCards[token] = game;
     });
 
     socket.on("set ready to game", (token, code) => {
@@ -102,7 +106,27 @@ io.on("connection", (socket) => {
                         cards: lobbys[code].minigames,
                         dateToEnd: Date.now() + 10000
                     });
-
+                    setTimeout(() => {
+                        let [maxCount, maxCountElement] = [0, ""];
+                        counts = {}
+                        console.log("TESTING SHIT");
+                        console.log(lobbys[code])
+                        for (const [key, value] in Object.entries(lobbys[code].chooseCards)) {
+                            console.log(counts, maxCount, maxCountElement, value);
+                            counts[value] = counts[value] ? counts[value] + 1 : 1;
+                            if (counts[value] > maxCount) {
+                                maxCount = counts[value];
+                                maxCountElement = value;
+                            }
+                        }
+                        console.log("start the minigame");
+                        socket.to(code).emit("start the game", {
+                            game: maxCountElement
+                        });
+                        socket.emit("start the game", {
+                            game: maxCountElement
+                        });
+                    }, 10000);
                 }, 3000);
             } else {
                 socket.to(code).emit("ready to scoreboard", Date.now() + 3000);
