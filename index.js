@@ -14,23 +14,32 @@ const io = socketIo(server,{
 
 function handleGame(state, socket) {
     const code = state.code;
+    console.log(state);
     if (state.status == "ready") {
+        console.log(lobbys[code]);
         lobbys[code].status = "ready";
-        if (lobbys[code].minigames.length > 0)
+        if (lobbys[code].minigames.size > 0)
         {
             socket.to(code).emit("ready to game", Date.now() + 3000);
             socket.emit("ready to game", Date.now() + 3000);
             setTimeout(() => { 
                 handleGame({
-                    state: "choosing cards",
+                    status: "choosing cards",
                     code: code
                 }, socket); 
             }, 3000);
         } else {
             socket.to(code).emit("ready to scoreboard", Date.now() + 3000);
             socket.emit("ready to scoreboard", Date.now() + 3000);
+            setTimeout(() => { 
+                handleGame({
+                    status: "end game",
+                    code: code
+                }, socket);
+            });
         }
     } else if (state.status == "choosing cards") {
+        console.log("choosing cards");
         socket.to(code).emit("choose cards", {
             cards: [...lobbys[code].minigames],
             dateToEnd: Date.now() + 10000
@@ -41,21 +50,25 @@ function handleGame(state, socket) {
         });
         setTimeout(() => { 
             handleGame({
-                state: "end of choosing",
+                status: "end of choosing",
                 code: code
             }, socket); 
         }, 10000);
     } else if (state.status == "end of choosing") {
-        let [maxCount, maxCountElement] = [0, lobbys[code].minigames[0]];
+        let maxCount = 0;
+        let maxCountElement = "";
+        console.log(maxCountElement);
         counts = {}
-        for (const [key, value] in Object.entries(lobbys[code].chooseCards)) {
-            console.log(counts, maxCount, maxCountElement, value);
+        for (const key in lobbys[code].chooseCards) {
+            let value = lobbys[code].chooseCards[key];
+            console.log(value)
             counts[value] = counts[value] ? counts[value] + 1 : 1;
-                if (counts[value] > maxCount) {
-                    maxCount = counts[value];
-                    maxCountElement = value;
-                }
+            if (counts[value] > maxCount) {
+                maxCount = counts[value];
+                maxCountElement = value;
+            }
         }
+        console.log(counts, maxCount, maxCountElement)
         socket.to(code).emit("start the game", {
             game: maxCountElement,
             dateToEnd: Date.now() + 10000
@@ -66,15 +79,50 @@ function handleGame(state, socket) {
         });
         setTimeout(() => { 
             handleGame({
-                state: "end of minigame",
+                status: "end of minigame",
                 currentGame: maxCountElement,
                 code: code
             }, socket); 
         }, 10000);
     } else if (state.status == "end of minigame") {
+        let scoresA = 0;
+        let scoresB = 0;
+        for (const token in lobbys[code].gameInfo) {
+            if (lobbys[code].membersA.has(token)) {
+                scoresA = lobbys[code].gameInfo[token];
+            }
+            if (lobbys[code].membersB.has(token)) {
+                scoresB = lobbys[code].gameInfo[token];
+            }
+        }
+        if (scoresA >= scoresB) {
+            lobbys[code].scoreA = lobbys[code].scoreA + 1;
+        }
+        if (scoresA <= scoresB) {
+            lobbys[code].scoreB = lobbys[code].scoreB + 1;
+        }
+        lobbys[code].minigames.delete(state.currentGame);
+        socket.to(code).emit("end of minigame", {
+            scoreA:lobbys[code].scoreA,
+            scoreB:lobbys[code].scoreB,
+            dateToEnd: Date.now() + 5000
+        });
+        socket.emit("end of minigame", {
+            scoreA:lobbys[code].scoreA,
+            scoreB:lobbys[code].scoreB,
+            dateToEnd: Date.now() + 5000
+        });
+        setTimeout(() => { 
+            handleGame({
+                status: "ready",
+                code: code
+            }, socket); 
+        }, 1000);
+    } else if (state.status == "end game") {
 
     }
 }
+
 
 let players = {};
 let lobbys = {};
@@ -107,11 +155,12 @@ io.on("connection", (socket) => {
                 membersA: new Set(),
                 membersB: new Set(),
                 minigames: new Set(),
-                chooseCards: {}
+                chooseCards: {},
+                gameInfo: {},
+                scoreA: 0,
+                scoreB: 0
             };
-            for (const x in ["guees", "arithmetic"]) {
-                lobbys[code].minigames.add(x)
-            }
+            ["guees", "arithmetic"].forEach(x => lobbys[code].minigames.add(x));
             callback({
                 status: "OK",
                 code: code
@@ -156,6 +205,7 @@ io.on("connection", (socket) => {
     });
 
     socket.on("set ready to game", (token, code) => {
+        console.log(token, code);
         players[token].isActive = true;
         console.log(token, "is ready");
         if ([...lobbys[code].membersA].reduce((accumulator, currentValue) => { return players[currentValue].isActive && accumulator; }, true) && [...lobbys[code].membersB].reduce((accumulator, currentValue) => { return players[currentValue].isActive && accumulator; }, true)) {
@@ -167,8 +217,8 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("", (callback) => {
-        
+    socket.on("update score", (token, code, score) => {
+        lobbys[code].gameInfo[token] = score;
     });
 
     socket.on("asd", (callback) => {
